@@ -1,12 +1,12 @@
 //
-//  test.h
+//  test.hpp
 //  chess
 //
-//  Created by Gary Sibanda on 5/10/23.
+//  Created by Gary Sibanda on 5/6/23.
 //
 
-#ifndef test_h
-#define test_h
+#include <stdio.h>
+#pragma once
 
+void testRunner();
 
-#endif /* test_h */
