@@ -1,9 +1,8 @@
 //
-//  piece.cpp
+//  uiInteract.cpp
 //  chess
 //
 //  Created by Gary Sibanda on 5/10/23.
 //
 
-#include "piece.h"
-
+#include <stdio.h>

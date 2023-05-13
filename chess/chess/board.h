@@ -9,11 +9,12 @@
 #define board_hpp
 
 #include <stdio.h>
+#include "uiDraw.h"
 
 class Board
 {
 private:
-#define NOPAWNS
+// #define NOPAWNS
    char board[64] =
     {
       'r', 'n', 'b', 'q', 'k', 'b', 'n', 'r',

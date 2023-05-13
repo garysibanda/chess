@@ -13,6 +13,8 @@
 		528FB84D2A0C6D0E00B841D4 /* piece.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 528FB84C2A0C6D0E00B841D4 /* piece.cpp */; };
 		528FB84F2A0C6D2200B841D4 /* position.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 528FB84E2A0C6D2200B841D4 /* position.cpp */; };
 		528FB8512A0C6D2E00B841D4 /* test.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 528FB8502A0C6D2E00B841D4 /* test.cpp */; };
+		528FB85F2A0CB1F600B841D4 /* uiDraw.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 528FB85E2A0CB1F600B841D4 /* uiDraw.cpp */; };
+		528FB8612A0CB24000B841D4 /* uiInteract.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 528FB8602A0CB24000B841D4 /* uiInteract.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -42,6 +44,9 @@
 		528FB8572A0C6D9C00B841D4 /* piece.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = piece.h; sourceTree = "<group>"; };
 		528FB8582A0C6DA400B841D4 /* move.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = move.h; sourceTree = "<group>"; };
 		528FB8592A0C6DAE00B841D4 /* board.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = board.h; sourceTree = "<group>"; };
+		528FB85A2A0C782D00B841D4 /* uiDraw.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = uiDraw.h; sourceTree = "<group>"; };
+		528FB85E2A0CB1F600B841D4 /* uiDraw.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = uiDraw.cpp; sourceTree = "<group>"; };
+		528FB8602A0CB24000B841D4 /* uiInteract.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = uiInteract.cpp; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -74,6 +79,8 @@
 		528FB8402A0C6C4000B841D4 /* chess */ = {
 			isa = PBXGroup;
 			children = (
+				528FB8602A0CB24000B841D4 /* uiInteract.cpp */,
+				528FB85E2A0CB1F600B841D4 /* uiDraw.cpp */,
 				528FB8412A0C6C4000B841D4 /* main.cpp */,
 				528FB8482A0C6CE500B841D4 /* board.cpp */,
 				528FB8592A0C6DAE00B841D4 /* board.h */,
@@ -87,6 +94,7 @@
 				528FB84E2A0C6D2200B841D4 /* position.cpp */,
 				528FB84C2A0C6D0E00B841D4 /* piece.cpp */,
 				528FB84A2A0C6D0200B841D4 /* move.cpp */,
+				528FB85A2A0C782D00B841D4 /* uiDraw.h */,
 			);
 			path = chess;
 			sourceTree = "<group>";
@@ -150,10 +158,12 @@
 			files = (
 				528FB84D2A0C6D0E00B841D4 /* piece.cpp in Sources */,
 				528FB8492A0C6CE500B841D4 /* board.cpp in Sources */,
+				528FB85F2A0CB1F600B841D4 /* uiDraw.cpp in Sources */,
 				528FB8422A0C6C4000B841D4 /* main.cpp in Sources */,
 				528FB84B2A0C6D0200B841D4 /* move.cpp in Sources */,
 				528FB84F2A0C6D2200B841D4 /* position.cpp in Sources */,
 				528FB8512A0C6D2E00B841D4 /* test.cpp in Sources */,
+				528FB8612A0CB24000B841D4 /* uiInteract.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

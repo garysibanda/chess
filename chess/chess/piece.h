@@ -9,6 +9,8 @@
 #define piece_hpp
 
 #include <stdio.h>
+#include "position.h"
+#include "piece.h"
 
 class Piece
 {
@@ -19,7 +21,7 @@ protected:
     int lastMove;
 
 public:
-    void piece(row, column, white);
+    void piece(row, col, isWhite);
     
     void assign(position);
     void assign(Piece);
