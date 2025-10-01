@@ -2,7 +2,7 @@
  * Source File:
  *    USER INTERFACE DRAW
  * Author:
- *    Br. Helfrich
+ *    Br. Helfrich, Gary Sibanda
  * Summary:
  *    This is the code necessary to draw on the screen. We have a collection
  *    of procedural functions here because each draw function does not
@@ -10,11 +10,11 @@
  *    (variables) or a mixture (objects)
  ************************************************************************/
 
-
 #include <string>     // need you ask?
 #include <sstream>    // convert an integer into text
 #include <cassert>    // I feel the need... the need for asserts
 #include <time.h>     // for clock
+#include <cmath>      // for sin/cos in circles
 
 #include "position.h"
 
@@ -34,35 +34,39 @@
 #ifdef _WIN32
 #include <stdio.h>
 #include <stdlib.h>
-#include <GL/glut.h>         // OpenGL library we copied 
+#include <GL/glut.h>         // OpenGL library we copied
 #define _USE_MATH_DEFINES
 #include <math.h>
 #define GLUT_TEXT GLUT_BITMAP_HELVETICA_12
 #endif // _WIN32
-
 
 #include "uiDraw.h"
 #include "uiInteract.h"
 
 using namespace std;
 
-// pieces: black and white
-const int RGB_WHITE[] = { 255, 255, 255 };
-const int RGB_BLACK[] = { 0, 0, 0 };
+// pieces: black and white with better contrast
+const int RGB_WHITE[] = { 240, 240, 230 };  // Slight cream color
+const int RGB_BLACK[] = { 30, 30, 40 };     // Dark grey-blue
 
-// normal squares: tan and brown
-const int RGB_WHITE_SQUARE[] = { 210, 180, 140 };
-const int RGB_BLACK_SQUARE[] = { 165, 42, 42 };
+// normal squares: even darker wood tones
+const int RGB_WHITE_SQUARE[] = { 190, 160, 120 };  // Darker tan wood
+const int RGB_BLACK_SQUARE[] = { 120, 75, 35 };    // Even darker brown wood
 
-// the color of a selected square
-const int RGB_SELECTED[] = { 255, 0, 0 };
-//const int RGB_SELECTED[] = { 115, 88, 70 };
+// selection and interaction colors - warm wood theme
+const int RGB_SELECTED[] = { 201, 174, 67 };   // Warm gold for selected square
+const int RGB_HOVER[] = { 205, 133, 63 };      // Terracotta for hover
+const int RGB_POSSIBLE[] = { 180, 150, 50 };   // Darker golden brown for possible moves
 
 // color of the coordinates
-const int RGB_LETTERS[] = { 128, 128, 128 };
+const int RGB_LETTERS[] = { 100, 100, 100 };   // Darker grey
 
 // color of the square around the board
 const int RGB_SQUARE[] = { 64, 64, 64 };
+
+// Outline colors for pieces
+const int RGB_WHITE_OUTLINE[] = { 60, 60, 60 };    // Dark outline for white pieces
+const int RGB_BLACK_OUTLINE[] = { 230, 230, 230 }; // Light outline for black pieces
 
 /*************************************************************************
  * DISPLAY the text in the buffer on the screen
@@ -131,7 +135,6 @@ void ogstream::drawLetter(const Position& topLeft, char letter) const
     glutBitmapCharacter(pFont, letter);
 }
 
-
 /************************************************************************
 * GL COLOR
 * Set the color on the board
@@ -139,48 +142,62 @@ void ogstream::drawLetter(const Position& topLeft, char letter) const
 *************************************************************************/
 void glColor(const int * rgb)
 {
-   glColor3f((GLfloat)(rgb[0] / 256.0), 
+   glColor3f((GLfloat)(rgb[0] / 256.0),
              (GLfloat)(rgb[1] / 256.0),
              (GLfloat)(rgb[2] / 256.0));
 }
 
 /************************************************************************
-* DRAW Piece
-* Draw a piece at a certain location on the board, in ortho coordinates
-*   INPUT  location   The location of the piece
-*          black      Whether the piece is black
-*          rectangles The rectangles of the piece
+* DRAW Piece WITH OUTLINE
+* Enhanced piece drawing with outline - only outer edges for cleaner look
 *************************************************************************/
 void ogstream::drawPiece(bool black, Rect rectangle[], int num) const
 {
    assert(position.isValid());
-   GLint x   = (GLint)((position.getCol() + 0.5) * 
-                        SIZE_SQUARE + SIZE_SQUARE);
-   GLint y   = (GLint)((position.getRow() + 0.5) *
-                        SIZE_SQUARE + SIZE_SQUARE);
+   GLint x = (GLint)((position.getCol() + 0.5) * SIZE_SQUARE + SIZE_SQUARE);
+   GLint y = (GLint)((position.getRow() + 0.5) * SIZE_SQUARE + SIZE_SQUARE);
 
-   // get ready to draw
+   // Draw the filled piece
    glBegin(GL_QUADS);
    glColor(black ? RGB_BLACK : RGB_WHITE);
-
-   // iterate through the rectangles
    for (int i = 0; i < num; i++)
-   { 
+   {
       glVertex2i(x + rectangle[i].x0, y + rectangle[i].y0);
       glVertex2i(x + rectangle[i].x1, y + rectangle[i].y1);
       glVertex2i(x + rectangle[i].x2, y + rectangle[i].y2);
       glVertex2i(x + rectangle[i].x3, y + rectangle[i].y3);
    }
-
-   // finish the drawing
    glEnd();
 }
 
 /************************************************************************
+* DRAW PIECE OUTLINE
+* Draw outline around the entire piece silhouette
+*************************************************************************/
+void ogstream::drawPieceOutline(bool black, Rect rectangle[], int num) const
+{
+   GLint x = (GLint)((position.getCol() + 0.5) * SIZE_SQUARE + SIZE_SQUARE);
+   GLint y = (GLint)((position.getRow() + 0.5) * SIZE_SQUARE + SIZE_SQUARE);
+
+   // Set thin line width for all pieces
+   glLineWidth(1.0f);
+   glColor(black ? RGB_BLACK_OUTLINE : RGB_WHITE_OUTLINE);
+   
+   // Draw outline for each rectangle
+   for (int i = 0; i < num; i++)
+   {
+      glBegin(GL_LINE_LOOP);
+      glVertex2i(x + rectangle[i].x0, y + rectangle[i].y0);
+      glVertex2i(x + rectangle[i].x1, y + rectangle[i].y1);
+      glVertex2i(x + rectangle[i].x2, y + rectangle[i].y2);
+      glVertex2i(x + rectangle[i].x3, y + rectangle[i].y3);
+      glEnd();
+   }
+}
+
+/************************************************************************
 * DRAW King
-* Draw a king at a certain location on the board
-*   INPUT  location  The location of the king
-*          black     Whether the king is black
+* Draw a king with outline
 *************************************************************************/
 void ogstream::drawKing(const Position& pos, bool black)
 {
@@ -197,13 +214,11 @@ void ogstream::drawKing(const Position& pos, bool black)
    
    position = pos;
    drawPiece(black, rectangles, 7);
+   drawPieceOutline(black, rectangles, 7);
 }
 
 /************************************************************************
 * DRAW Queen
-* Draw a queen at a certain location on the board
-*   INPUT  location  The location of the queen
-*          black     Whether the queen is black
 *************************************************************************/
 void ogstream::drawQueen(const Position& pos, bool black)
 {
@@ -222,6 +237,7 @@ void ogstream::drawQueen(const Position& pos, bool black)
 
    position = pos;
    drawPiece(black, rectangles, 9);
+   drawPieceOutline(black, rectangles, 9);
 }
 
 /************************************************************************
@@ -243,6 +259,7 @@ void ogstream::drawRook(const Position& pos, bool black)
 
    position = pos;
    drawPiece(black, rectangles, 5);
+   drawPieceOutline(black, rectangles, 5);
 }
 
 /************************************************************************
@@ -260,33 +277,34 @@ void ogstream::drawKnight(const Position& pos, bool black)
       {-3,6,   3,6,   6,1,   1,1},  // main
       { 6,1,   1,1,  -5,-5,  5,-5}, // body
       { 6,-6, -6,-6, -6,-8,  6,-8}  // base
-   
    };
 
    position = pos;
    drawPiece(black, rectangles, 5);
+   drawPieceOutline(black, rectangles, 5);
 }
 
 /************************************************************************
 * DRAW Bishop
-* Draw a Bishop at a certain location on the board
-*   INPUT  location  The location of the Bishop
-*          black     Whether the knight is Bishop
+* Draw a bishop at a certain location on the board
+*   INPUT  location  The location of the bishop
+*          black     Whether the bishop is black
 *************************************************************************/
 void ogstream::drawBishop(const Position& pos, bool black)
 {
-   Rect rectangles[] =
-   {
-      {-1,8,  -1,2,   1,2,   1,8 },   // center of head
-      { 1,8,   1,2,   5,2,   5,5 },   // right part of head
-      {-4,5,  -4,2,  -2,2,  -2, 6},   // left of head
-      {-5,3,  -5,2,   5,2,   5,3 },   // base of head
-      {-2,2,  -4,-5,  4,-5,  2,2 },   // neck
-      { 6,-6, -6,-6, -6,-8,  6,-8}    // base
-   };
+    Rect rectangles[] =
+    {
+       {-1,8,  -1,2,   1,2,   1,8 },   // center of head
+       { 1,8,   1,2,   5,2,   5,5 },   // right part of head
+       {-4,5,  -4,2,  -2,2,  -2, 6},   // left of head
+       {-5,3,  -5,2,   5,2,   5,3 },   // base of head
+       {-2,2,  -4,-5,  4,-5,  2,2 },   // neck
+       { 6,-6, -6,-6, -6,-8,  6,-8}    // base
+    };
 
-   position = pos;
-   drawPiece(black, rectangles, 6);
+    position = pos;
+    drawPiece(black, rectangles, 6);
+    drawPieceOutline(black, rectangles, 6);
 }
 
 /************************************************************************
@@ -307,12 +325,13 @@ void ogstream::drawPawn(const Position& pos, bool black)
 
    position = pos;
    drawPiece(black, rectangles, 4);
+   drawPieceOutline(black, rectangles, 4);
 }
 
 /************************************************************************
 * DRAW BOARD
 * Draw the chess board. Note that all coordinates are in the origional
-* dimensions (SQUARE_SIZE + SQUARE_SIZE * 8 + SQUARE_SIZE), 
+* dimensions (SQUARE_SIZE + SQUARE_SIZE * 8 + SQUARE_SIZE),
 * not taking into account any scaling or resizing (non-ortho coordinates)
 ************************************************************************/
 void ogstream::drawBoard()
@@ -431,7 +450,6 @@ void ogstream::drawSelected(const Position& pos)
    int row = pos.getRow();
    int col = pos.getCol();
 
-
    // set the color and drawing style
    glBegin(GL_QUADS);
    glColor(RGB_SELECTED);
@@ -448,7 +466,6 @@ void ogstream::drawSelected(const Position& pos)
 
    // indicate we are finished
    glEnd();
-
 }
 
 /************************************************************************
@@ -468,7 +485,7 @@ void ogstream::drawHover(const Position& pos)
 
    // set the color and drawing style
    glBegin(GL_QUADS);
-   glColor(RGB_SELECTED);
+   glColor(RGB_HOVER);
 
    // draw the square
    glVertex2i((GLint)((col + 0) * SIZE_SQUARE + SIZE_SQUARE),
@@ -486,7 +503,7 @@ void ogstream::drawHover(const Position& pos)
    else
       glColor(RGB_WHITE_SQUARE);
 
-   // draw the square
+   // draw the inner square
    glVertex2i((GLint)((col + 0) * SIZE_SQUARE + 2 + SIZE_SQUARE),
               (GLint)((row + 0) * SIZE_SQUARE + 2 + SIZE_SQUARE));
    glVertex2i((GLint)((col + 1) * SIZE_SQUARE - 2 + SIZE_SQUARE),
@@ -495,7 +512,6 @@ void ogstream::drawHover(const Position& pos)
               (GLint)((row + 1) * SIZE_SQUARE - 2 + SIZE_SQUARE));
    glVertex2i((GLint)((col + 0) * SIZE_SQUARE + 2 + SIZE_SQUARE),
               (GLint)((row + 1) * SIZE_SQUARE - 2 + SIZE_SQUARE));
-
 
    // finish the drawing
    glEnd();
@@ -518,7 +534,7 @@ void ogstream::drawPossible(const Position& pos)
 
    // set the color and drawing style
    glBegin(GL_QUADS);
-   glColor(RGB_SELECTED);
+   glColor(RGB_POSSIBLE);
 
    // draw the square
    glVertex2i((GLint)((col + 0) * SIZE_SQUARE + 7 + SIZE_SQUARE),
@@ -533,6 +549,3 @@ void ogstream::drawPossible(const Position& pos)
    // finish the drawing
    glEnd();
 }
-
-
-

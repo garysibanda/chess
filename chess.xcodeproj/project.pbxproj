@@ -33,6 +33,8 @@
 		52F8B0E62E89116C00D3168D /* pieceQueen.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 52F8B0AC2E89116C00D3168D /* pieceQueen.cpp */; };
 		52F8B0E92E8911DE00D3168D /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52F8B0E82E8911DE00D3168D /* OpenGL.framework */; };
 		52F8B0EB2E89127D00D3168D /* GLUT.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52F8B0EA2E89127D00D3168D /* GLUT.framework */; };
+		52F8B0ED2E8D113000D3168D /* libfreetype.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 52F8B0EC2E8D113000D3168D /* libfreetype.a */; };
+		52F8B0F12E8D95E400D3168D /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52F8B0F02E8D95E400D3168D /* CoreFoundation.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -102,6 +104,9 @@
 		52F8B0CE2E89116C00D3168D /* unitTest.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = unitTest.h; path = src/unitTest.h; sourceTree = SOURCE_ROOT; };
 		52F8B0E82E8911DE00D3168D /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
 		52F8B0EA2E89127D00D3168D /* GLUT.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GLUT.framework; path = System/Library/Frameworks/GLUT.framework; sourceTree = SDKROOT; };
+		52F8B0EC2E8D113000D3168D /* libfreetype.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libfreetype.a; path = ../../../../../opt/homebrew/Cellar/freetype/2.14.1_1/lib/libfreetype.a; sourceTree = "<group>"; };
+		52F8B0EE2E8D115100D3168D /* freetype2.pc */ = {isa = PBXFileReference; lastKnownFileType = text; name = freetype2.pc; path = ../../../../../opt/homebrew/Cellar/freetype/2.14.1_1/lib/pkgconfig/freetype2.pc; sourceTree = "<group>"; };
+		52F8B0F02E8D95E400D3168D /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -109,6 +114,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				52F8B0F12E8D95E400D3168D /* CoreFoundation.framework in Frameworks */,
+				52F8B0ED2E8D113000D3168D /* libfreetype.a in Frameworks */,
 				52F8B0EB2E89127D00D3168D /* GLUT.framework in Frameworks */,
 				52F8B0E92E8911DE00D3168D /* OpenGL.framework in Frameworks */,
 			);
@@ -195,6 +202,9 @@
 		52F8B0E72E8911DE00D3168D /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				52F8B0F02E8D95E400D3168D /* CoreFoundation.framework */,
+				52F8B0EE2E8D115100D3168D /* freetype2.pc */,
+				52F8B0EC2E8D113000D3168D /* libfreetype.a */,
 				52F8B0EA2E89127D00D3168D /* GLUT.framework */,
 				52F8B0E82E8911DE00D3168D /* OpenGL.framework */,
 			);
@@ -401,6 +411,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				"HEADER_SEARCH_PATHS[arch=*]" = /opt/homebrew/opt/freetype/include/freetype2;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/opt/homebrew/Cellar/freetype/2.14.1_1/lib,
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -409,6 +424,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				"HEADER_SEARCH_PATHS[arch=*]" = /opt/homebrew/opt/freetype/include/freetype2;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/opt/homebrew/Cellar/freetype/2.14.1_1/lib,
+				);
+				"LIBRARY_SEARCH_PATHS[arch=*]" = /opt/homebrew/opt/freetype/lib;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;

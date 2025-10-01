@@ -73,6 +73,7 @@ private:
     };
 
     void drawPiece(bool black, Rect rectangle[], int num) const;
+    void drawPieceOutline(bool black, Rect rectangle[], int num) const;  
     void drawText(const Position& topLeft, const char* text) const;
     void drawLetter(const Position& topLeft, char letter) const;
 };
