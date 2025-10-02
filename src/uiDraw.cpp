@@ -1,532 +1,578 @@
 /***********************************************************************
  * Source File:
- *    BOARD
+ *    USER INTERFACE DRAW
  * Author:
- *    Gary Sibanda
+ *    Br. Helfrich, Gary Sibanda
  * Summary:
- *    A collection of pieces and a small amount of game state
+ *    This is the code necessary to draw on the screen. We have a collection
+ *    of procedural functions here because each draw function does not
+ *    retain state. In other words, they are verbs (functions), not nouns
+ *    (variables) or a mixture (objects)
  ************************************************************************/
 
-#include "board.h"
-#include "uiDraw.h"
+#include <string>     // need you ask?
+#include <sstream>    // convert an integer into text
+#include <cassert>    // I feel the need... the need for asserts
+#include <time.h>     // for clock
+#include <cmath>      // for sin/cos in circles
+
 #include "position.h"
-#include "piece.h"
-#include "pieceSpace.h"
-#include "pieceKnight.h"
-#include "pieceRook.h"
-#include "pieceBishop.h"
-#include "pieceQueen.h"
-#include "pieceKing.h"
-#include "piecePawn.h"
-#include <cassert>
+
+#ifdef __APPLE__
+#define GL_SILENCE_DEPRECATION
+#include <openGL/gl.h>    // Main OpenGL library
+#include <GLUT/glut.h>    // Second OpenGL library
+#define GLUT_TEXT GLUT_BITMAP_HELVETICA_18
+#endif // __APPLE__
+
+#ifdef __linux__
+#include <GL/gl.h>        // Main OpenGL library
+#include <GL/glut.h>      // Second OpenGL library
+#define GLUT_TEXT GLUT_BITMAP_HELVETICA_12
+#endif // __linux__
+
+#ifdef _WIN32
+#include <stdio.h>
+#include <stdlib.h>
+#include <GL/glut.h>         // OpenGL library we copied
+#define _USE_MATH_DEFINES
+#include <math.h>
+#define GLUT_TEXT GLUT_BITMAP_HELVETICA_12
+#endif // _WIN32
+
+#include "uiDraw.h"
+#include "uiInteract.h"
+
 using namespace std;
 
+// pieces: black and white with better contrast
+const int RGB_WHITE[] = { 240, 240, 230 };  // Slight cream color
+const int RGB_BLACK[] = { 30, 30, 40 };     // Dark grey-blue
 
-/***********************************************
- * BOARD : RESET
- *         Just fill the board with the known pieces
- *   +---a-b-c-d-e-f-g-h---+
- *   |                     |
- *   8     N         N     8
- *   7                     7
- *   6                     6
- *   5                     5
- *   4                     4
- *   3                     3
- *   2                     2
- *   1     n         n     1
- *   |                     |
- *   +---a-b-c-d-e-f-g-h---+
- ***********************************************/
-void Board::reset(bool fFree)
+// normal squares: even darker wood tones
+const int RGB_WHITE_SQUARE[] = { 190, 160, 120 };  // Darker tan wood
+const int RGB_BLACK_SQUARE[] = { 120, 75, 35 };    // Even darker brown wood
+
+// selection and interaction colors - warm wood theme
+const int RGB_SELECTED[] = { 201, 174, 67 };   // Warm gold for selected square
+const int RGB_HOVER[] = { 205, 133, 63 };      // Terracotta for hover
+const int RGB_POSSIBLE[] = { 180, 150, 50 };   // Darker golden brown for possible moves
+
+// color of the coordinates
+const int RGB_LETTERS[] = { 100, 100, 100 };   // Darker grey
+
+// color of the square around the board
+const int RGB_SQUARE[] = { 64, 64, 64 };
+
+// Outline colors for pieces
+const int RGB_WHITE_OUTLINE[] = { 60, 60, 60 };    // Dark outline for white pieces
+const int RGB_BLACK_OUTLINE[] = { 200, 200, 200 }; // Light outline for black pieces
+
+/*************************************************************************
+ * DISPLAY the text in the buffer on the screen
+ *************************************************************************/
+void ogstream::flush()
 {
-   // Free all pieces if requested
-   if (fFree)
-      free();
-   
-   // Set all board pointers to nullptr
-   for (int c = 0; c < 8; ++c)
-      for (int r = 0; r < 8; ++r)
-         board[c][r] = nullptr;
-   
-   // Place the Rooks on the board
-   board[0][0] = new Rook(0, 0, true);
-   board[7][0] = new Rook(7, 0, true);
-   board[0][7] = new Rook(0, 7, false);
-   board[7][7] = new Rook(7, 7, false);
-   
-   // Place the knights on the board
-   board[1][0] = new Knight(1, 0, true);
-   board[6][0] = new Knight(6, 0, true);
-   board[1][7] = new Knight(1, 7, false);
-   board[6][7] = new Knight(6, 7, false);
-   
-   // Place the bishops on the board
-   board[2][0] = new Bishop(2, 0, true);
-   board[5][0] = new Bishop(5, 0, true);
-   board[2][7] = new Bishop(2, 7, false);
-   board[5][7] = new Bishop(5, 7, false);
-   
-   // Place the queens on the board
-   board[3][0] = new Queen(3, 0, true);
-   board[3][7] = new Queen(3, 7, false);
-   
-   // Place the kings on the board
-   board[4][0] = new King(4, 0, true);
-   board[4][7] = new King(4, 7, false);
-   
-   // Place the pawns on the board
-   for (int c = 0; c < 8; ++c)
-   {
-      board[c][1] = new Pawn(c, 1, true);
-      board[c][6] = new Pawn(c, 6, false);
-   }
-   
-   for (int c = 0; c < 8; ++c)
-      for (int r = 0; r < 8; ++r)
-         if (board[c][r] == nullptr)
-            board[c][r] = new Space(c, r);
-   
-   numMoves = 0;
-   assertBoard();
-}
+   string sOut;
+   string sIn = str();
 
-/***********************************************
- * BOARD : GET
- *         Get a piece from a given position.
- ***********************************************/
-const Piece& Board::operator[](const Position& pos) const
-{
-   assert(pos.getRow() >= 0 && pos.getRow() < 8);
-   assert(pos.getCol() >= 0 && pos.getCol() < 8);
-   return *board[pos.getCol()][pos.getRow()];
-}
-
-Piece& Board::operator[](const Position& pos)
-{
-   assert(pos.getRow() >= 0 && pos.getRow() < 8);
-   assert(pos.getCol() >= 0 && pos.getCol() < 8);
-   return *board[pos.getCol()][pos.getRow()];
-}
-
-/***********************************************
- * BOARD : DISPLAY
- *         Display the board
- ***********************************************/
-void Board::display(const Position& posHover, const Position& posSelect) const
-{
-   // Draw the board
-   pgout->drawBoard();
-
-   // Check game status (logic remains, display removed for now)
-   // bool currentPlayerIsWhite = whiteTurn();
-   // if (isInCheckmate(currentPlayerIsWhite))
-   // {
-   //    pgout->drawGameStatus("CHECKMATE!");
-   // }
-   // else if (isInStalemate(currentPlayerIsWhite))
-   // {
-   //    pgout->drawGameStatus("STALEMATE!");
-   // }
-   // else if (isInCheck(currentPlayerIsWhite))
-   // {
-   //    pgout->drawGameStatus("CHECK!");
-   // }
-  
-   if (posHover.isValid() && (*this)[posHover].getType() != SPACE)
-      pgout->drawHover(posHover);
-
-   if (posSelect.isValid())
-   {
-      Piece* selectedPiece = getPiece(posSelect);
-
-      if (selectedPiece && (*this)[posSelect].getType() != SPACE)
+   // copy everything but the newlines
+   for (string::iterator it = sIn.begin(); it != sIn.end(); ++it)
+      // newline triggers an buffer flush and a move down
+      if (*it == '\n')
       {
-         pgout->drawSelected(posSelect);
-         set<Move> possibleMoves;
-         selectedPiece->getMoves(possibleMoves, *this);
-         for (const Move& m : possibleMoves)
-            pgout->drawPossible(m.getDest());
+         drawText(position, sOut.c_str());
+         sOut.clear();
+         position.adjustRow(-1);
       }
-   }
-   
-   // Draw all pieces
-   for (int c = 0; c < 8; ++c)
+      // othewise append
+      else
+         sOut += *it;
+
+   // put the text on the screen
+   if (!sOut.empty())
    {
-      for (int r = 0; r < 8; ++r)
+      drawText(position, sOut.c_str());
+      position.adjustRow(-1);
+   }
+
+   // reset the buffer
+   str("");
+}
+
+/*************************************************************************
+ * DRAW GAME STATUS TEXT
+ * Draw CHECK or CHECKMATE message at the top of the board
+ ************************************************************************/
+void ogstream::drawGameStatus(const char* message) const
+{
+    void* pFont = GLUT_BITMAP_TIMES_ROMAN_24;
+    
+    // Calculate message width for centering
+    int messageLength = 0;
+    for (const char* p = message; *p; p++)
+        messageLength += glutBitmapWidth(pFont, *p);
+    
+    // Center horizontally - board center is at 5 SIZE_SQUAREs (4.5 board + 1 margin)
+    GLfloat xPos = (GLfloat)(SIZE_SQUARE * 5.5) - (messageLength / 2.0);
+    
+    // Position vertically - between outer border and coordinate letters
+    // Just below row 9, in the margin area
+    GLfloat yPos = (GLfloat)(SIZE_SQUARE * 8.75);
+    
+    // Draw red text
+    glColor3ub(220, 20, 60);  // Crimson red
+    glRasterPos2f(xPos, yPos);
+    for (const char* p = message; *p; p++)
+        glutBitmapCharacter(pFont, *p);
+}
+
+/*************************************************************************
+ * DRAW TEXT
+ * Draw text using a simple bitmap font
+ *   INPUT  topLeft   The top left corner of the text, in absolute coordinates
+ *          text      The text to be displayed
+ ************************************************************************/
+void ogstream::drawText(const Position& topLeft, const char* text) const
+{
+    void* pFont = GLUT_TEXT;
+
+    // prepare to draw the text from the top-left corner
+    glRasterPos2f((GLfloat)topLeft.getX(), (GLfloat)topLeft.getY());
+
+    // loop through the text
+    for (const char* p = text; *p; p++)
+        glutBitmapCharacter(pFont, *p);
+}
+
+/*************************************************************************
+ * DRAW LETTER
+ * Draw text using a simple bitmap font
+ *   INPUT  topLeft   The top left corner of the text, in absolute coordiantes
+ *          letter    The letter to be displayed
+ ************************************************************************/
+void ogstream::drawLetter(const Position& topLeft, char letter) const
+{
+    void* pFont = GLUT_TEXT;
+
+    // prepare to draw the text from the top-left corner
+    glRasterPos2f((GLfloat)topLeft.getX(), (GLfloat)topLeft.getY());
+
+    // loop through the text
+    glutBitmapCharacter(pFont, letter);
+}
+
+/************************************************************************
+* GL COLOR
+* Set the color on the board
+*   INPUT  rgb  RGB color in integers (0...255)
+*************************************************************************/
+void glColor(const int * rgb)
+{
+   glColor3f((GLfloat)(rgb[0] / 256.0),
+             (GLfloat)(rgb[1] / 256.0),
+             (GLfloat)(rgb[2] / 256.0));
+}
+
+/************************************************************************
+* DRAW Piece WITH OUTLINE
+* Enhanced piece drawing with outline - only outer edges for cleaner look
+*************************************************************************/
+void ogstream::drawPiece(bool black, Rect rectangle[], int num) const
+{
+   assert(position.isValid());
+   GLint x = (GLint)((position.getCol() + 0.5) * SIZE_SQUARE + SIZE_SQUARE);
+   GLint y = (GLint)((position.getRow() + 0.5) * SIZE_SQUARE + SIZE_SQUARE);
+
+   // Draw the filled piece
+   glBegin(GL_QUADS);
+   glColor(black ? RGB_BLACK : RGB_WHITE);
+   for (int i = 0; i < num; i++)
+   {
+      glVertex2i(x + rectangle[i].x0, y + rectangle[i].y0);
+      glVertex2i(x + rectangle[i].x1, y + rectangle[i].y1);
+      glVertex2i(x + rectangle[i].x2, y + rectangle[i].y2);
+      glVertex2i(x + rectangle[i].x3, y + rectangle[i].y3);
+   }
+   glEnd();
+}
+
+/************************************************************************
+* DRAW PIECE OUTLINE
+* Draw outline around the entire piece silhouette
+*************************************************************************/
+void ogstream::drawPieceOutline(bool black, Rect rectangle[], int num) const
+{
+   GLint x = (GLint)((position.getCol() + 0.5) * SIZE_SQUARE + SIZE_SQUARE);
+   GLint y = (GLint)((position.getRow() + 0.5) * SIZE_SQUARE + SIZE_SQUARE);
+
+   // Set thin line width for all pieces
+   glLineWidth(1.0f);
+   glColor(black ? RGB_BLACK_OUTLINE : RGB_WHITE_OUTLINE);
+   
+   // Draw outline for each rectangle
+   for (int i = 0; i < num; i++)
+   {
+      glBegin(GL_LINE_LOOP);
+      glVertex2i(x + rectangle[i].x0, y + rectangle[i].y0);
+      glVertex2i(x + rectangle[i].x1, y + rectangle[i].y1);
+      glVertex2i(x + rectangle[i].x2, y + rectangle[i].y2);
+      glVertex2i(x + rectangle[i].x3, y + rectangle[i].y3);
+      glEnd();
+   }
+}
+
+/************************************************************************
+* DRAW King
+* Draw a king with outline
+*************************************************************************/
+void ogstream::drawKing(const Position& pos, bool black)
+{
+   Rect rectangles[] =
+   {
+      { 1,8,  -1,8,  -1,1,   1,1},     // cross vertical
+      {-3,6,   3,6,   3,4,  -3,4},     // cross horizontal
+      {-8,3,  -8,-3, -3,-3, -3,3},     // bug bump left
+      { 8,3,   8,-3,  3,-3,  3,3},     // bug bump right
+      { 5,1,   5,-5, -5,-5, -5,1},     // center column
+      { 8,-4, -8,-4, -8,-5,  8,-5},    // base center
+      { 8,-6, -8,-6, -8,-8,  8,-8}     // base
+   };
+   
+   position = pos;
+   drawPiece(black, rectangles, 7);
+   drawPieceOutline(black, rectangles, 7);
+}
+
+/************************************************************************
+* DRAW Queen
+*************************************************************************/
+void ogstream::drawQueen(const Position& pos, bool black)
+{
+   Rect rectangles[] =
+   {
+      { 8,8,   5,8,   5,5,   8,5 },     // right crown jewel
+      {-8,8,  -5,8,  -5,5,  -8,5 },     // left crown jewel
+      { 2,8,  -2,8,  -2,5,   2,5 },     // center crown jewel
+      { 7,5,   5,5,   1,0,   5,0 },     // right crown holder
+      {-7,5,  -5,5,  -1,0,  -5,0 },     // left crown holder
+      { 1,5,   1,0,  -1,0,  -1,5 },     // center crown holder
+      { 4,0,  -4,0,  -4,-2,  4,-2},     // upper base
+      { 6,-3, -6,-3, -6,-5,  6,-5},     // middel base
+      { 8,-6, -8,-6, -8,-8,  8,-8}      // base
+   };
+
+   position = pos;
+   drawPiece(black, rectangles, 9);
+   drawPieceOutline(black, rectangles, 9);
+}
+
+/************************************************************************
+* DRAW Rook
+* Draw a Rook at a certain location on the board
+*   INPUT  location  The location of the Rook
+*          black     Whether the knight is castle
+*************************************************************************/
+void ogstream::drawRook(const Position& pos, bool black)
+{
+   Rect rectangles[] =
+   {
+      {-8,7,  -8,4,  -4,4,  -4,7},   // left battlement
+      { 8,7,   8,4,   4,4,   4,7},   // right battlement
+      { 2,7,   2,4,  -2,4,  -2,7},   // center battlement
+      { 4,3,   4,-5, -4,-5, -4,3},   // wall
+      { 6,-6, -6,-6, -6,-8,  6,-8}   // base
+   };
+
+   position = pos;
+   drawPiece(black, rectangles, 5);
+   drawPieceOutline(black, rectangles, 5);
+}
+
+/************************************************************************
+* DRAW Knight
+* Draw a knight at a certain location on the board
+*   INPUT  location  The location of the knight
+*          black     Whether the knight is black
+*************************************************************************/
+void ogstream::drawKnight(const Position& pos, bool black)
+{
+   Rect rectangles[] =
+   {
+      {-7,3,  -3,6,  -1,3,  -5,0},  // muzzle
+      {-2,6,  -2,8,   0,8,   0,3},  // head
+      {-3,6,   3,6,   6,1,   1,1},  // main
+      { 6,1,   1,1,  -5,-5,  5,-5}, // body
+      { 6,-6, -6,-6, -6,-8,  6,-8}  // base
+   };
+
+   position = pos;
+   drawPiece(black, rectangles, 5);
+   drawPieceOutline(black, rectangles, 5);
+}
+
+/************************************************************************
+* DRAW Bishop
+* Draw a bishop at a certain location on the board
+*   INPUT  location  The location of the bishop
+*          black     Whether the bishop is black
+*************************************************************************/
+void ogstream::drawBishop(const Position& pos, bool black)
+{
+    Rect rectangles[] =
+    {
+       {-1,8,  -1,2,   1,2,   1,8 },   // center of head
+       { 1,8,   1,2,   5,2,   5,5 },   // right part of head
+       {-4,5,  -4,2,  -2,2,  -2, 6},   // left of head
+       {-5,3,  -5,2,   5,2,   5,3 },   // base of head
+       {-2,2,  -4,-5,  4,-5,  2,2 },   // neck
+       { 6,-6, -6,-6, -6,-8,  6,-8}    // base
+    };
+
+    position = pos;
+    drawPiece(black, rectangles, 6);
+    drawPieceOutline(black, rectangles, 6);
+}
+
+/************************************************************************
+* DRAW PAWN
+* Draw a pawn at a certain location on the board
+*   INPUT  location  The location of the pawn
+*          black     Whether the pawn is black
+*************************************************************************/
+void ogstream::drawPawn(const Position& pos, bool black)
+{
+   Rect rectangles[] =
+   {
+      { 1,7,  -1,7,  -2,5,  2,5 }, // top of head
+      { 3,5,  -3,5,  -3,3,  3,3 }, // bottom of head
+      { 1,3,  -1,3,  -2,-3, 2,-3}, // neck
+      { 4,-3, -4,-3, -4,-5, 4,-5}  // base
+   };
+
+   position = pos;
+   drawPiece(black, rectangles, 4);
+   drawPieceOutline(black, rectangles, 4);
+}
+
+/************************************************************************
+* DRAW BOARD
+* Draw the chess board. Note that all coordinates are in the origional
+* dimensions (SQUARE_SIZE + SQUARE_SIZE * 8 + SQUARE_SIZE),
+* not taking into account any scaling or resizing (non-ortho coordinates)
+************************************************************************/
+void ogstream::drawBoard()
+{
+   // draw the squares of the board
+   glBegin(GL_QUADS);
+   for (int row = 0; row < 8; row++)
+      for (int col = 0; col < 8; col++)
       {
-         if (board[c][r])
-            board[c][r]->display(pgout);
+         // set the checker-board color
+         if ((row + col) % 2 == 0)
+            glColor(RGB_BLACK_SQUARE);
+         else
+            glColor(RGB_WHITE_SQUARE);
+
+         // draw the square
+         Position pos;
+         GLint x0 = (GLint)((col + 0) * SIZE_SQUARE + 1 + SIZE_SQUARE);
+         GLint x1 = (GLint)((col + 1) * SIZE_SQUARE - 1 + SIZE_SQUARE);
+         GLint y0 = (GLint)((row + 0) * SIZE_SQUARE + 1 + SIZE_SQUARE);
+         GLint y1 = (GLint)((row + 1) * SIZE_SQUARE - 1 + SIZE_SQUARE);
+         glVertex2i(x0, y0);
+         glVertex2i(x1, y0);
+         glVertex2i(x1, y1);
+         glVertex2i(x0, y1);
       }
-   }
-}
+   glEnd();
 
+   // draw a box around the coordinates
+   glBegin(GL_LINE_STRIP);
+   glColor(RGB_SQUARE);
+   GLint inner = SIZE_SQUARE / 2;
+   GLint outter = 8 * SIZE_SQUARE + SIZE_SQUARE + SIZE_SQUARE / 2;
+   glVertex2i(inner, inner);
+   glVertex2i(inner, outter);
+   glVertex2i(outter, outter);
+   glVertex2i(outter, inner);
+   glVertex2i(inner, inner);
+   glEnd();
+   
+   // draw a box around the edge
+   inner = SIZE_SQUARE - 2;
+   outter = SIZE_SQUARE + 8 * SIZE_SQUARE + 2;
+   glBegin(GL_LINE_STRIP);
+   glVertex2i(inner, inner);
+   glVertex2i(inner, outter);
+   glVertex2i(outter, outter);
+   glVertex2i(outter, inner);
+   glVertex2i(inner, inner);
+   glEnd();
 
-/************************************************
- * BOARD : CONSTRUCT
- *         Free up all the allocated memory
- ************************************************/
-Board::Board(ogstream* pgout, bool noreset) : pgout(pgout), numMoves(0)
-{
-   // Initialize all board pointers to nullptr
-   for (int c = 0; c < 8; ++c)
-      for (int r = 0; r < 8; ++r)
-         board[c][r] = nullptr;
    
-   // Place the Rooks on the board
-   board[0][0] = new Rook(0, 0, true);
-   board[7][0] = new Rook(7, 0, true);
-   board[0][7] = new Rook(0, 7, false);
-   board[7][7] = new Rook(7, 7, false);
-   
-   // Place the knights on the board
-   board[1][0] = new Knight(1, 0, true);
-   board[6][0] = new Knight(6, 0, true);
-   board[1][7] = new Knight(1, 7, false);
-   board[6][7] = new Knight(6, 7, false);
-   
-   // Place the bishops on the board
-   board[2][0] = new Bishop(2, 0, true);
-   board[5][0] = new Bishop(5, 0, true);
-   board[2][7] = new Bishop(2, 7, false);
-   board[5][7] = new Bishop(5, 7, false);
-   
-   // Place the queens on the board
-   board[3][0] = new Queen(3, 0, true);
-   board[3][7] = new Queen(3, 7, false);
-   
-   // Place the kings on the board
-   board[4][0] = new King(4, 0, true);
-   board[4][7] = new King(4, 7, false);
-   
-   // Place the pawns on the board
-   for (int c = 0; c < 8; ++c)
+   // draw the letters along the bottom and the top
+   glColor(RGB_LETTERS);
+   const GLfloat WIDTH_LETTER  = 4.0;  // width of one letter
+   const GLfloat HEIGHT_LETTER = 14.0; // height of one letter
+   const GLfloat TEXT_MARGIN   = 2.0;  // how close a letter can get to the edge
+   for (int col = 0; col < 8; col++)
    {
-      board[c][1] = new Pawn(c, 1, true);
-      board[c][6] = new Pawn(c, 6, false);
+      void* pFont = GLUT_TEXT;
+
+      // Bottom row
+      GLfloat xPos = (GLfloat)SIZE_SQUARE +          // indent by the board margin
+                     (GLfloat)(col * SIZE_SQUARE) +  // tab over by the number of columns
+                     (GLfloat)(SIZE_SQUARE / 2) +    // center on the column
+                     -WIDTH_LETTER;                  // back up by the width of a letter
+      GLfloat yPos = TEXT_MARGIN;                    // just a bit from the bottom
+      glRasterPos2f(xPos, yPos);
+      glutBitmapCharacter(pFont, (char)('a' + col));
+
+      // top row
+      yPos = (GLfloat)(SIZE_SQUARE * 2) +            // add the margins and...
+             (GLfloat)(8 * SIZE_SQUARE) +            // add the size of the squares
+             -HEIGHT_LETTER +                        // subtract the size of a letter
+             -TEXT_MARGIN;                           // just a bit from the bottom
+      glRasterPos2f(xPos, yPos);
+      glutBitmapCharacter(pFont, (char)('a' + col));
    }
-   
-   for (int c = 0; c < 8; ++c)
-      for (int r = 0; r < 8; ++r)
-         if (board[c][r] == nullptr)
-            board[c][r] = new Space(c, r);
-   
-   if (noreset) reset();
-}
 
-/************************************************
- * BOARD : FREE
- *         Free up all the allocated memory
- ************************************************/
-void Board::free()
-{
-   // Delete all pieces and set pointers to nullptr
-   for (int c = 0; c < 8; ++c)
-      for (int r = 0; r < 8; ++r)
-         if (board[c][r] == nullptr)
-            delete board[c][r];
-}
-
-
-/**********************************************
- * BOARD : ASSERT BOARD
- *         Verify the board is well-formed
- *********************************************/
-void Board::assertBoard()
-{
-   for (int c = 0; c < 8; ++c)
-      for (int r = 0; r < 8; ++r)
-         if (board[c][r] != nullptr)
-         {
-            Position pos = board[c][r]->getPosition();
-            assert(pos.getRow() == r);
-            assert(pos.getCol() == c);
-            assert(board[c][r]->getType() == SPACE  ||
-                   board[c][r]->getType() == KING   ||
-                   board[c][r]->getType() == QUEEN  ||
-                   board[c][r]->getType() == ROOK   ||
-                   board[c][r]->getType() == BISHOP ||
-                   board[c][r]->getType() == KNIGHT ||
-                   board[c][r]->getType() == PAWN);
-         }
-}
-
-
-
-
-/**********************************************
- * BOARD : MOVE
- *         Execute a move according to the contained instructions
- *   INPUT move The instructions of the move
- *********************************************/
-void Board::move(const Move& move)
-{
-   int srcCol = move.getSource().getCol();
-   int srcRow = move.getSource().getRow();
-   Piece* pMoving = board[srcCol][srcRow];
-   
-   if (!pMoving || pMoving->isWhite() != whiteTurn())
-      return;
-   
-   set<Move> legalMoves;
-   pMoving->getMoves(legalMoves, *this);
-   
-   if (legalMoves.find(move) == legalMoves.end())
-      return;
-   
-   ++numMoves;
-   
-   int dstCol = move.getDest().getCol();
-   int dstRow = move.getDest().getRow();
-   
-   // Handle en passant
-   if (move.getMoveType() == Move::ENPASSANT)
+   // draw the numbers along the side
+   for (int row = 0; row < 8; row++)
    {
-      // Move the pawn
-      board[dstCol][dstRow] = pMoving;
-      pMoving->setPosition(dstCol, dstRow);
-      board[srcCol][srcRow] = new Space(srcCol, srcRow);
+      void* pFont = GLUT_TEXT;
       
-      // Remove the captured pawn
-      int capturedRow = pMoving->isWhite() ? dstRow - 1 : dstRow + 1;
-      delete board[dstCol][capturedRow];
-      board[dstCol][capturedRow] = new Space(dstCol, capturedRow);
-      return;
-   }
-   
-   // Handle castling (already implemented)
-   if (move.getMoveType() == Move::CASTLE_KING)
-   {
-      int rookSrcCol = 7;
-      int rookDstCol = 5;
-      int row = srcRow;
-      board[rookDstCol][row] = board[rookSrcCol][row];
-      board[rookDstCol][row]->setPosition(rookDstCol, row);
-      board[rookSrcCol][row] = new Space(rookSrcCol, row);
-      // Move the king
-      board[dstCol][dstRow] = pMoving;
-      pMoving->setPosition(dstCol, dstRow);
-      board[srcCol][srcRow] = new Space(srcCol, srcRow);
-      return;
-   }
-   else if (move.getMoveType() == Move::CASTLE_QUEEN)
-   {
-      int rookSrcCol = 0;
-      int rookDstCol = 3;
-      int row = srcRow;
-      board[rookDstCol][row] = board[rookSrcCol][row];
-      board[rookDstCol][row]->setPosition(rookDstCol, row);
-      board[rookSrcCol][row] = new Space(rookSrcCol, row);
-      // Move the king
-      board[dstCol][dstRow] = pMoving;
-      pMoving->setPosition(dstCol, dstRow);
-      board[srcCol][srcRow] = new Space(srcCol, srcRow);
-      return;
-   }
-   
-   // Handle promotion (with or without capture)
-   if (pMoving->getType() == PAWN && move.getPromote() != SPACE)
-   {
-      if (board[dstCol][dstRow] && board[dstCol][dstRow]->getType() != SPACE)
-         delete board[dstCol][dstRow];
-      board[dstCol][dstRow] = pMoving;
-      pMoving->setPosition(dstCol, dstRow);
-      board[srcCol][srcRow] = new Space(srcCol, srcRow);
+      // left column
+      GLfloat xPos = TEXT_MARGIN;                    // just a bit from the side
+      GLfloat yPos = (GLfloat)SIZE_SQUARE +          // indent by the board margin
+                     (GLfloat)(row * SIZE_SQUARE) +  // tab over by the number of rows
+                     (GLfloat)(SIZE_SQUARE / 2) +    // center on the row
+                     -HEIGHT_LETTER/2;               // back up by the height of a letter
+      glRasterPos2f(xPos, yPos);
+      glutBitmapCharacter(pFont, (char)('1' + row));
       
-      bool isWhite = pMoving->isWhite();
-      delete board[dstCol][dstRow];
-      Piece* pPromoted = nullptr;
-      switch (move.getPromote())
-      {
-         case QUEEN:  pPromoted = new Queen(dstCol, dstRow, isWhite); break;
-         case ROOK:   pPromoted = new Rook(dstCol, dstRow, isWhite); break;
-         case BISHOP: pPromoted = new Bishop(dstCol, dstRow, isWhite); break;
-         case KNIGHT: pPromoted = new Knight(dstCol, dstRow, isWhite); break;
-         default:     pPromoted = new Queen(dstCol, dstRow, isWhite); break;
-      }
-      board[dstCol][dstRow] = pPromoted;
+      // right column
+      xPos = (GLfloat)(SIZE_SQUARE * 2) +            // add the margins and...
+             (GLfloat)(8 * SIZE_SQUARE) +            // add the size of the squares
+             -HEIGHT_LETTER +                        // subtract the size of a letter
+             -TEXT_MARGIN;                           // just a bit from the bottom
+      glRasterPos2f(xPos, yPos);
+      glutBitmapCharacter(pFont, (char)('1' + row));
+   }
+}
+
+/************************************************************************
+* DRAW SELECTED
+* Highlight a chess square:
+*   INPUT  location  The location of the selected square, in ortho coordinates
+************************************************************************/
+void ogstream::drawSelected(const Position& pos)
+{
+   // do nothing if there is nothing to do
+   if (pos.isInvalid())
       return;
-   }
-   
-   // Default: normal move (including standard pawn capture)
-   if (board[dstCol][dstRow] && board[dstCol][dstRow]->getType() != SPACE)
-      delete board[dstCol][dstRow];
-   board[dstCol][dstRow] = pMoving;
-   pMoving->setPosition(dstCol, dstRow);
-   board[srcCol][srcRow] = new Space(srcCol, srcRow);
+
+   // find the row and column
+   int row = pos.getRow();
+   int col = pos.getCol();
+
+   // set the color and drawing style
+   glBegin(GL_QUADS);
+   glColor(RGB_SELECTED);
+
+   // draw the square
+   glVertex2i((GLint)((col + 0) * SIZE_SQUARE + 3 + SIZE_SQUARE),
+              (GLint)((row + 0) * SIZE_SQUARE + 3 + SIZE_SQUARE));
+   glVertex2i((GLint)((col + 1) * SIZE_SQUARE - 3 + SIZE_SQUARE),
+              (GLint)((row + 0) * SIZE_SQUARE + 3 + SIZE_SQUARE));
+   glVertex2i((GLint)((col + 1) * SIZE_SQUARE - 3 + SIZE_SQUARE),
+              (GLint)((row + 1) * SIZE_SQUARE - 3 + SIZE_SQUARE));
+   glVertex2i((GLint)((col + 0) * SIZE_SQUARE + 3 + SIZE_SQUARE),
+              (GLint)((row + 1) * SIZE_SQUARE - 3 + SIZE_SQUARE));
+
+   // indicate we are finished
+   glEnd();
 }
 
-/**********************************************
- * BOARD : FIND KING
- * Find the position of the king for a given color
- *********************************************/
-Position Board::findKing(bool isWhite) const
+/************************************************************************
+* DRAW HOVER
+* Highlight a chess square:
+*   INPUT  location  The location of the selected square, in ortho coordinates
+************************************************************************/
+void ogstream::drawHover(const Position& pos)
 {
-   for (int c = 0; c < 8; ++c)
-   {
-      for (int r = 0; r < 8; ++r)
-      {
-         Piece* piece = board[c][r];
-         if (piece && piece->getType() == KING && piece->isWhite() == isWhite)
-         {
-            return Position(c, r);
-         }
-      }
-   }
-   return Position(); // Return invalid position if not found
+   // do nothing if there is nothing to do
+   if (pos.isInvalid())
+      return;
+
+   // find the row and column
+   int row = pos.getRow();
+   int col = pos.getCol();
+
+   // set the color and drawing style
+   glBegin(GL_QUADS);
+   glColor(RGB_HOVER);
+
+   // draw the square
+   glVertex2i((GLint)((col + 0) * SIZE_SQUARE + SIZE_SQUARE),
+              (GLint)((row + 0) * SIZE_SQUARE + SIZE_SQUARE));
+   glVertex2i((GLint)((col + 1) * SIZE_SQUARE + SIZE_SQUARE),
+              (GLint)((row + 0) * SIZE_SQUARE + SIZE_SQUARE));
+   glVertex2i((GLint)((col + 1) * SIZE_SQUARE + SIZE_SQUARE),
+              (GLint)((row + 1) * SIZE_SQUARE + SIZE_SQUARE));
+   glVertex2i((GLint)((col + 0) * SIZE_SQUARE + SIZE_SQUARE),
+              (GLint)((row + 1) * SIZE_SQUARE + SIZE_SQUARE));
+
+   // set the checker-board color
+   if ((row + col) % 2 == 0)
+      glColor(RGB_BLACK_SQUARE);
+   else
+      glColor(RGB_WHITE_SQUARE);
+
+   // draw the inner square
+   glVertex2i((GLint)((col + 0) * SIZE_SQUARE + 2 + SIZE_SQUARE),
+              (GLint)((row + 0) * SIZE_SQUARE + 2 + SIZE_SQUARE));
+   glVertex2i((GLint)((col + 1) * SIZE_SQUARE - 2 + SIZE_SQUARE),
+              (GLint)((row + 0) * SIZE_SQUARE + 2 + SIZE_SQUARE));
+   glVertex2i((GLint)((col + 1) * SIZE_SQUARE - 2 + SIZE_SQUARE),
+              (GLint)((row + 1) * SIZE_SQUARE - 2 + SIZE_SQUARE));
+   glVertex2i((GLint)((col + 0) * SIZE_SQUARE + 2 + SIZE_SQUARE),
+              (GLint)((row + 1) * SIZE_SQUARE - 2 + SIZE_SQUARE));
+
+   // finish the drawing
+   glEnd();
 }
 
-/**********************************************
- * BOARD : IS SQUARE UNDER ATTACK
- * Check if a square is under attack by the opponent
- *********************************************/
-bool Board::isSquareUnderAttack(const Position& pos, bool byWhite) const
+/************************************************************************
+* DRAW POSSIBLE
+* Highlight a chess square:
+*   INPUT  location  The location of the selected square, in ortho coordinates
+************************************************************************/
+void ogstream::drawPossible(const Position& pos)
 {
-   if (!pos.isValid())
-      return false;
-   
-   // Check all opponent pieces
-   for (int c = 0; c < 8; ++c)
-   {
-      for (int r = 0; r < 8; ++r)
-      {
-         Piece* piece = board[c][r];
-         if (piece && piece->getType() != SPACE && piece->isWhite() == byWhite)
-         {
-            set<Move> moves;
-            piece->getMoves(moves, *this);
-            
-            // Check if any move targets this position
-            for (const Move& move : moves)
-            {
-               if (move.getDest() == pos)
-               {
-                  return true;
-               }
-            }
-         }
-      }
-   }
-   return false;
-}
+   // do nothing if there is nothing to do
+   if (pos.isInvalid())
+      return;
 
-/**********************************************
- * BOARD : IS IN CHECK
- * Determine if the king of the given color is in check
- *********************************************/
-bool Board::isInCheck(bool isWhite) const
-{
-   Position kingPos = findKing(isWhite);
-   
-   if (kingPos.isInvalid())
-      return false;
-   
-   // Check if the king's position is under attack by the opponent
-   return isSquareUnderAttack(kingPos, !isWhite);
-}
+   // find the row and column
+   int row = pos.getRow();
+   int col = pos.getCol();
 
-/**********************************************
- * BOARD : WOULD MOVE LEAVE KING IN CHECK
- * Test if making a move would leave your own king in check
- *********************************************/
-bool Board::wouldMoveLeaveKingInCheck(const Move& move, bool isWhite) const
-{
-   // Make a temporary copy of the board state
-   Piece* tempBoard[8][8];
-   for (int c = 0; c < 8; ++c)
-      for (int r = 0; r < 8; ++r)
-         tempBoard[c][r] = board[c][r];
-   
-   int srcCol = move.getSource().getCol();
-   int srcRow = move.getSource().getRow();
-   int dstCol = move.getDest().getCol();
-   int dstRow = move.getDest().getRow();
-   
-   // Simulate the move
-   Piece* movingPiece = board[srcCol][srcRow];
-   Piece* capturedPiece = board[dstCol][dstRow];
-   
-   // Temporarily modify the board array
-   const_cast<Board*>(this)->board[dstCol][dstRow] = movingPiece;
-   const_cast<Board*>(this)->board[srcCol][srcRow] = nullptr;
-   
-   // Update piece position temporarily
-   Position originalPos = movingPiece->getPosition();
-   const_cast<Piece*>(movingPiece)->setPosition(dstCol, dstRow);
-   
-   // Check if king is in check after this move
-   bool kingInCheck = isInCheck(isWhite);
-   
-   // Restore the board
-   const_cast<Board*>(this)->board[srcCol][srcRow] = movingPiece;
-   const_cast<Board*>(this)->board[dstCol][dstRow] = capturedPiece;
-   const_cast<Piece*>(movingPiece)->setPosition(originalPos.getCol(), originalPos.getRow());
-   
-   return kingInCheck;
-}
+   // set the color and drawing style
+   glBegin(GL_QUADS);
+   glColor(RGB_POSSIBLE);
 
-/**********************************************
- * BOARD : HAS LEGAL MOVES
- * Check if a player has any legal moves (moves that don't leave king in check)
- *********************************************/
-bool Board::hasLegalMoves(bool isWhite) const
-{
-   for (int c = 0; c < 8; ++c)
-   {
-      for (int r = 0; r < 8; ++r)
-      {
-         Piece* piece = board[c][r];
-         if (piece && piece->getType() != SPACE && piece->isWhite() == isWhite)
-         {
-            set<Move> moves;
-            piece->getMoves(moves, *this);
-            
-            // Check if any move would get the king out of check
-            for (const Move& move : moves)
-            {
-               if (!wouldMoveLeaveKingInCheck(move, isWhite))
-               {
-                  return true;
-               }
-            }
-         }
-      }
-   }
-   return false;
-}
+   // draw the square
+   glVertex2i((GLint)((col + 0) * SIZE_SQUARE + 7 + SIZE_SQUARE),
+              (GLint)((row + 0) * SIZE_SQUARE + 7 + SIZE_SQUARE));
+   glVertex2i((GLint)((col + 1) * SIZE_SQUARE - 7 + SIZE_SQUARE),
+              (GLint)((row + 0) * SIZE_SQUARE + 7 + SIZE_SQUARE));
+   glVertex2i((GLint)((col + 1) * SIZE_SQUARE - 7 + SIZE_SQUARE),
+              (GLint)((row + 1) * SIZE_SQUARE - 7 + SIZE_SQUARE));
+   glVertex2i((GLint)((col + 0) * SIZE_SQUARE + 7 + SIZE_SQUARE),
+              (GLint)((row + 1) * SIZE_SQUARE - 7 + SIZE_SQUARE));
 
-/**********************************************
- * BOARD : IS IN CHECKMATE
- * Determine if the player is in checkmate
- *********************************************/
-bool Board::isInCheckmate(bool isWhite) const
-{
-   return isInCheck(isWhite) && !hasLegalMoves(isWhite);
-}
-
-/**********************************************
- * BOARD : IS IN STALEMATE
- * Determine if the player is in stalemate (no legal moves but not in check)
- *********************************************/
-bool Board::isInStalemate(bool isWhite) const
-{
-   return !isInCheck(isWhite) && !hasLegalMoves(isWhite);
-}
-
-/**********************************************
- * BOARD EMPTY
- * The game board that is completely empty.
- * It does not even have spaces though each non-filled
- * spot will report it has a space. This is for unit testing
- *********************************************/
-BoardEmpty::BoardEmpty() : BoardDummy(), pSpace(nullptr), moveNumber(0)
-{
-   for (int c = 0; c < 8; ++c)
-      for (int r = 0; r < 8; ++r)
-         board[c][r] = nullptr;
-   pSpace = new Space(0, 0);
-}
-BoardEmpty::~BoardEmpty()
-{
-   delete pSpace;
+   // finish the drawing
+   glEnd();
 }
