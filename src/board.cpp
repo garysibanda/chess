@@ -115,9 +115,23 @@ Piece& Board::operator[](const Position& pos)
  ***********************************************/
 void Board::display(const Position& posHover, const Position& posSelect) const
 {
-	// Draw the board
+   // Draw the board
    pgout->drawBoard();
 
+   // Check game status and display message
+   bool currentPlayerIsWhite = whiteTurn();
+   if (isInCheckmate(currentPlayerIsWhite))
+   {
+      pgout->drawGameStatus("CHECKMATE!");
+   }
+   else if (isInStalemate(currentPlayerIsWhite))
+   {
+      pgout->drawGameStatus("STALEMATE!");
+   }
+   else if (isInCheck(currentPlayerIsWhite))
+   {
+      pgout->drawGameStatus("CHECK!");
+   }
   
    if (posHover.isValid() && (*this)[posHover].getType() != SPACE)
       pgout->drawHover(posHover);
@@ -287,7 +301,7 @@ void Board::move(const Move& move)
       int rookDstCol = 5;
       int row = srcRow;
       board[rookDstCol][row] = board[rookSrcCol][row];
-		board[rookDstCol][row]->setPosition(rookDstCol, row);
+      board[rookDstCol][row]->setPosition(rookDstCol, row);
       board[rookSrcCol][row] = new Space(rookSrcCol, row);
       // Move the king
       board[dstCol][dstRow] = pMoving;
@@ -301,7 +315,7 @@ void Board::move(const Move& move)
       int rookDstCol = 3;
       int row = srcRow;
       board[rookDstCol][row] = board[rookSrcCol][row];
-		board[rookDstCol][row]->setPosition(rookDstCol, row);
+      board[rookDstCol][row]->setPosition(rookDstCol, row);
       board[rookSrcCol][row] = new Space(rookSrcCol, row);
       // Move the king
       board[dstCol][dstRow] = pMoving;
@@ -340,6 +354,163 @@ void Board::move(const Move& move)
    board[dstCol][dstRow] = pMoving;
    pMoving->setPosition(dstCol, dstRow);
    board[srcCol][srcRow] = new Space(srcCol, srcRow);
+}
+
+/**********************************************
+ * BOARD : FIND KING
+ * Find the position of the king for a given color
+ *********************************************/
+Position Board::findKing(bool isWhite) const
+{
+   for (int c = 0; c < 8; ++c)
+   {
+      for (int r = 0; r < 8; ++r)
+      {
+         Piece* piece = board[c][r];
+         if (piece && piece->getType() == KING && piece->isWhite() == isWhite)
+         {
+            return Position(c, r);
+         }
+      }
+   }
+   return Position(); // Return invalid position if not found
+}
+
+/**********************************************
+ * BOARD : IS SQUARE UNDER ATTACK
+ * Check if a square is under attack by the opponent
+ *********************************************/
+bool Board::isSquareUnderAttack(const Position& pos, bool byWhite) const
+{
+   if (!pos.isValid())
+      return false;
+   
+   // Check all opponent pieces
+   for (int c = 0; c < 8; ++c)
+   {
+      for (int r = 0; r < 8; ++r)
+      {
+         Piece* piece = board[c][r];
+         if (piece && piece->getType() != SPACE && piece->isWhite() == byWhite)
+         {
+            set<Move> moves;
+            piece->getMoves(moves, *this);
+            
+            // Check if any move targets this position
+            for (const Move& move : moves)
+            {
+               if (move.getDest() == pos)
+               {
+                  return true;
+               }
+            }
+         }
+      }
+   }
+   return false;
+}
+
+/**********************************************
+ * BOARD : IS IN CHECK
+ * Determine if the king of the given color is in check
+ *********************************************/
+bool Board::isInCheck(bool isWhite) const
+{
+   Position kingPos = findKing(isWhite);
+   
+   if (kingPos.isInvalid())
+      return false;
+   
+   // Check if the king's position is under attack by the opponent
+   return isSquareUnderAttack(kingPos, !isWhite);
+}
+
+/**********************************************
+ * BOARD : WOULD MOVE LEAVE KING IN CHECK
+ * Test if making a move would leave your own king in check
+ *********************************************/
+bool Board::wouldMoveLeaveKingInCheck(const Move& move, bool isWhite) const
+{
+   // Make a temporary copy of the board state
+   Piece* tempBoard[8][8];
+   for (int c = 0; c < 8; ++c)
+      for (int r = 0; r < 8; ++r)
+         tempBoard[c][r] = board[c][r];
+   
+   int srcCol = move.getSource().getCol();
+   int srcRow = move.getSource().getRow();
+   int dstCol = move.getDest().getCol();
+   int dstRow = move.getDest().getRow();
+   
+   // Simulate the move
+   Piece* movingPiece = board[srcCol][srcRow];
+   Piece* capturedPiece = board[dstCol][dstRow];
+   
+   // Temporarily modify the board array
+   const_cast<Board*>(this)->board[dstCol][dstRow] = movingPiece;
+   const_cast<Board*>(this)->board[srcCol][srcRow] = nullptr;
+   
+   // Update piece position temporarily
+   Position originalPos = movingPiece->getPosition();
+   const_cast<Piece*>(movingPiece)->setPosition(dstCol, dstRow);
+   
+   // Check if king is in check after this move
+   bool kingInCheck = isInCheck(isWhite);
+   
+   // Restore the board
+   const_cast<Board*>(this)->board[srcCol][srcRow] = movingPiece;
+   const_cast<Board*>(this)->board[dstCol][dstRow] = capturedPiece;
+   const_cast<Piece*>(movingPiece)->setPosition(originalPos.getCol(), originalPos.getRow());
+   
+   return kingInCheck;
+}
+
+/**********************************************
+ * BOARD : HAS LEGAL MOVES
+ * Check if a player has any legal moves (moves that don't leave king in check)
+ *********************************************/
+bool Board::hasLegalMoves(bool isWhite) const
+{
+   for (int c = 0; c < 8; ++c)
+   {
+      for (int r = 0; r < 8; ++r)
+      {
+         Piece* piece = board[c][r];
+         if (piece && piece->getType() != SPACE && piece->isWhite() == isWhite)
+         {
+            set<Move> moves;
+            piece->getMoves(moves, *this);
+            
+            // Check if any move would get the king out of check
+            for (const Move& move : moves)
+            {
+               if (!wouldMoveLeaveKingInCheck(move, isWhite))
+               {
+                  return true;
+               }
+            }
+         }
+      }
+   }
+   return false;
+}
+
+/**********************************************
+ * BOARD : IS IN CHECKMATE
+ * Determine if the player is in checkmate
+ *********************************************/
+bool Board::isInCheckmate(bool isWhite) const
+{
+   return isInCheck(isWhite) && !hasLegalMoves(isWhite);
+}
+
+/**********************************************
+ * BOARD : IS IN STALEMATE
+ * Determine if the player is in stalemate (no legal moves but not in check)
+ *********************************************/
+bool Board::isInStalemate(bool isWhite) const
+{
+   return !isInCheck(isWhite) && !hasLegalMoves(isWhite);
 }
 
 /**********************************************

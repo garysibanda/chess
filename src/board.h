@@ -11,7 +11,8 @@
 
 #include <stack>
 #include <cassert>
-#include "move.h"   // Because we return a set of Move
+#include "move.h"      // Because we return a set of Move
+#include "position.h"  // Because we use Position in method signatures
 
 class ogstream;
 class TestPawn;
@@ -21,7 +22,6 @@ class TestRook;
 class TestQueen;
 class TestKing;
 class TestBoard;
-class Position;
 class Piece;
 
 
@@ -56,6 +56,13 @@ public:
       return board[pos.getCol()][pos.getRow()];
    }
    
+   // Check and Checkmate detection
+   virtual bool isInCheck(bool isWhite) const;
+   virtual bool isInCheckmate(bool isWhite) const;
+   virtual bool isInStalemate(bool isWhite) const;
+   virtual Position findKing(bool isWhite) const;
+   virtual bool wouldMoveLeaveKingInCheck(const Move& move, bool isWhite) const;
+   
    // setters
    virtual void free();
    virtual void reset(bool fFree = true);
@@ -64,6 +71,8 @@ public:
    
 protected:
    void  assertBoard();
+   bool isSquareUnderAttack(const Position& pos, bool byWhite) const;
+   bool hasLegalMoves(bool isWhite) const;
    
    Piece * board[8][8];    // the board of chess pieces
    int numMoves;
@@ -128,4 +137,3 @@ public:
    }
    int  getCurrentMove() const { return moveNumber; }
 };
-

@@ -18,6 +18,7 @@
 #include <cassert>        // for ASSERT
 #include <fstream>        // for IFSTREAM
 #include <string>         // for STRING
+#include <iostream>       // for COUT
 using namespace std;
 
 
@@ -38,19 +39,57 @@ void callBack(Interface* pUI, void* p)
    Position src = pUI->getPreviousPosition();
    Position dest = pUI->getSelectPosition();
    
+   // Get possible moves for selected piece
    if (src.isValid())
+   {
       (*pBoard)[src].getMoves(possible, *pBoard);
+      
+      // Filter out moves that would leave king in check
+      set<Move> legalMoves;
+      bool currentPlayerIsWhite = pBoard->whiteTurn();
+      
+      for (const Move& m : possible)
+      {
+         // Check if this move would leave the king in check
+         if (!pBoard->wouldMoveLeaveKingInCheck(m, currentPlayerIsWhite))
+         {
+            legalMoves.insert(m);
+         }
+      }
+      possible = legalMoves;
+   }
    
    // If the source and destination are valid, and the move is possible
    if (dest.isValid() && src.isValid())
       move = Move(src, dest, possible);
    
-   // move
+   // Attempt to make the move
    if (possible.find(move) != possible.end())
    {
       // Perform the move
       pBoard->move(move);
       pUI->clearSelectPosition();
+      
+      // Check game state after the move
+      bool nextPlayerIsWhite = pBoard->whiteTurn();
+      
+      if (pBoard->isInCheckmate(nextPlayerIsWhite))
+      {
+         // Game over - checkmate
+         string winner = nextPlayerIsWhite ? "Black" : "White";
+         cout << "\n*** CHECKMATE! " << winner << " wins! ***\n" << endl;
+      }
+      else if (pBoard->isInStalemate(nextPlayerIsWhite))
+      {
+         // Game over - stalemate
+         cout << "\n*** STALEMATE! Game is a draw! ***\n" << endl;
+      }
+      else if (pBoard->isInCheck(nextPlayerIsWhite))
+      {
+         // Player is in check but not checkmate
+         string player = nextPlayerIsWhite ? "White" : "Black";
+         cout << "\n*** CHECK! " << player << " king is in check! ***\n" << endl;
+      }
    }
    
    // If no possible move was found, draw current selection possible moves
@@ -58,6 +97,19 @@ void callBack(Interface* pUI, void* p)
    {
       possible.clear();
       (*pBoard)[dest].getMoves(possible, *pBoard);
+      
+      // Filter out illegal moves for display
+      set<Move> legalMoves;
+      bool currentPlayerIsWhite = pBoard->whiteTurn();
+      
+      for (const Move& m : possible)
+      {
+         if (!pBoard->wouldMoveLeaveKingInCheck(m, currentPlayerIsWhite))
+         {
+            legalMoves.insert(m);
+         }
+      }
+      possible = legalMoves;
    }
    
    // if blank spot clicked, clear selection
@@ -66,7 +118,6 @@ void callBack(Interface* pUI, void* p)
    
    // Draw the board
    pBoard->display(pUI->getHoverPosition(), pUI->getSelectPosition());
-   
 }
 
 

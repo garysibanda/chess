@@ -45,11 +45,12 @@ public:
     virtual void drawBishop(const Position& pos, bool black);
     virtual void drawKnight(const Position& pos, bool black);
 
-    // Methods to draw the board 
+    // Methods to draw the board
     virtual void drawBoard();
     virtual void drawSelected(const Position& pos);
     virtual void drawHover(   const Position& pos);
     virtual void drawPossible(const Position& pos);
+    virtual void drawGameStatus(const char* message) const;
 
 protected:
     Position position;
@@ -73,7 +74,7 @@ private:
     };
 
     void drawPiece(bool black, Rect rectangle[], int num) const;
-    void drawPieceOutline(bool black, Rect rectangle[], int num) const;  
+    void drawPieceOutline(bool black, Rect rectangle[], int num) const;
     void drawText(const Position& topLeft, const char* text) const;
     void drawLetter(const Position& topLeft, char letter) const;
 };
